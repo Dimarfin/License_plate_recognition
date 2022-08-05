@@ -14,8 +14,8 @@ torchvision>=0.8.1
 tqdm>=4.41.0
 protobuf<4.21.3  # https://github.com/ultralytics/yolov5/issues/8012
 streamlit==1.11.1
-#argparse==1.4.0
-platform
+argparse==1.4.0
+#platform
 cv2==4.6.0
 PIL.Image==9.0.1
 pytesseract==0.3.9
