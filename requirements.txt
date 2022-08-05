@@ -14,7 +14,7 @@ torchvision>=0.8.1
 tqdm>=4.41.0
 protobuf<4.21.3  # https://github.com/ultralytics/yolov5/issues/8012
 streamlit==1.11.1
-torch==1.12.0+cpu
+#torch==1.12.0+cpu
 argparse==1.1
 platform==1.0.8
 cv2==4.6.0
