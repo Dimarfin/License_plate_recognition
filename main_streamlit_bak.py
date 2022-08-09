@@ -15,27 +15,23 @@ import numpy as np
 
 cfg_model_path = "weights/car_plates.pt" 
 
-def img_preprocessor01(img):
+def img_preproc(path):
+    img = cv2.imread(path)
+    img[:,:,0] = 255*np.ones([img.shape[0], img.shape[1]])
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     _, img = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
-    mask = np.zeros(img.shape, dtype=np.uint8)
-    cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    image = img
+    gray = img
+    mask = np.zeros(image.shape, dtype=np.uint8)
+
+    cnts = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+
     cv2.fillPoly(mask, cnts, [255,255,255])
     mask = 255 - mask
-    result = cv2.bitwise_or(img, mask)
+    result = cv2.bitwise_or(image, mask)
     return result
 
-def txt_postproc01(text):
-    ln = text
-    lines = text.split('\n')
-    if len(lines)>1:
-        ln = max(lines, key=len)
-        if len(ln)<4:
-            ln='-1'
-    if (len(lines)==1 and len(lines[0])<4) or (len(lines)==0):
-        ln = '-1'
-    return ln
 
 
 def imageInput(device, src):
@@ -45,13 +41,6 @@ def imageInput(device, src):
         col1, col2 = st.columns(2)
         if image_file is not None:
             img = Image.open(image_file)
-            
-            colA,colB = st.columns(2)
-            with colB:
-                ta = st.empty()
-                tb = st.empty()           
-            col1, col2 = st.columns(2)
-        
             with col1:
                 st.image(img, caption='Uploaded Image', use_column_width='always')
             ts = datetime.timestamp(datetime.now())
@@ -77,17 +66,12 @@ def imageInput(device, src):
                 crops = pred.crop(save=True)
                 crop_path = 'runs/detect/exp/crops/License/'
                 crops = os.listdir(crop_path)
-                
+                st.write("Licence plate(s) text:")
                 for crop in crops:
-                    img = cv2.imread(crop_path+crop)
-                    text = pytesseract.image_to_string(img_preprocessor01(img), config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    text = txt_postproc01(text)
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 7 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 8 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    ta.write("Licence plate(s) text: ")
-                    tb.subheader(text)
+                    text = pytesseract.image_to_string(img_preproc(crop_path+crop), config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                    if len(text)<4:
+                        text = pytesseract.image_to_string(crop_path+crop, config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                    st.header(text)
                 shutil.rmtree('runs/detect/exp/')
                 
     elif src == 'From test set.': 
@@ -96,11 +80,6 @@ def imageInput(device, src):
         imgsel = st.slider('Select random images from test set.', min_value=1, max_value=len(imgpath), step=1) 
         image_file = imgpath[imgsel-1]
         submit = st.button("Detect!")
-        
-        colA,colB = st.columns(2)
-        with colB:
-            ta = st.empty()
-            tb = st.empty()           
         col1, col2 = st.columns(2)
         with col1:
             img = Image.open(image_file)
@@ -120,17 +99,12 @@ def imageInput(device, src):
                 crops = pred.crop(save=True)
                 crop_path = 'runs/detect/exp/crops/License/'
                 crops = os.listdir(crop_path)
-                #st.write("Licence plate(s) text:")
+                st.write("Licence plate(s) text:")
                 for crop in crops:
-                    img = cv2.imread(crop_path+crop)
-                    text = pytesseract.image_to_string(img_preprocessor01(img), config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    text = txt_postproc01(text)
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 7 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 8 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    ta.write("Licence plate(s) text: ")
-                    tb.subheader(text)
+                    text = pytesseract.image_to_string(img_preproc(crop_path+crop), config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                    if len(text)<4:
+                        text = pytesseract.image_to_string(crop_path+crop, config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                    st.header(text)
                 shutil.rmtree('runs/detect/exp/')
 
 
@@ -159,21 +133,19 @@ def videoInput(device, src):
 
 def main():
     # -- Sidebar
-    pytesseract.pytesseract.tesseract_cmd = r'.\Tesseract-OCR\tesseract.exe'
+    #pytesseract.pytesseract.tesseract_cmd = r'.\Tesseract-OCR\tesseract.exe'
     st.sidebar.title('⚙️Options')
     datasrc = st.sidebar.radio("Select input source.", ['From test set.', 'Upload your own data.'])
     
         
-    option = "Image" 
-    deviceoption = 'cpu'
-    #option = st.sidebar.radio("Select input type.", ['Image', 'Video'], disabled = True, index=0)
-    #if torch.cuda.is_available():
-    #    deviceoption = st.sidebar.radio("Select compute Device.", ['cpu', 'cuda'], disabled = False, index=1)
-    #else:
-    #    deviceoption = st.sidebar.radio("Select compute Device.", ['cpu', 'cuda'], disabled = True, index=0)
+                
+    option = st.sidebar.radio("Select input type.", ['Image', 'Video'], disabled = True, index=0)
+    if torch.cuda.is_available():
+        deviceoption = st.sidebar.radio("Select compute Device.", ['cpu', 'cuda'], disabled = False, index=1)
+    else:
+        deviceoption = st.sidebar.radio("Select compute Device.", ['cpu', 'cuda'], disabled = True, index=0)
     # -- End of Sidebar
-    
-    
+
     st.header('🚘 Car license plate recognition system')
     st.subheader('👈🏽 Select options from the left-hand menu bar')
     #st.sidebar.markdown("https://github.com/thepbordin/Obstacle-Detection-for-Blind-people-Deployment")
@@ -182,6 +154,7 @@ def main():
     elif option == "Video": 
         videoInput(deviceoption, datasrc)
 
+    
 
 if __name__ == '__main__':
   
