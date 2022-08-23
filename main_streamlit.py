@@ -103,7 +103,7 @@ def imageInput(device, src):
         imgsel = st.slider('Select random images from test set.', min_value=1, max_value=len(imgpath), step=1) 
         image_file = imgpath[imgsel-1]
         submit = st.button("Detect!")
-        st.write(image_file)
+        #st.write(image_file)
         
         colA,colB = st.columns(2)
         with colB:
@@ -174,7 +174,7 @@ def videoInput(device, src):
 
 def main():
     # -- Sidebar
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Users\kater\AppData\Local\Tesseract-OCR\tesseract.exe'
+    #pytesseract.pytesseract.tesseract_cmd = r'C:\Users\kater\AppData\Local\Tesseract-OCR\tesseract.exe'
     st.sidebar.title('⚙️Options')
     datasrc = st.sidebar.radio("Select input source.", ['From test set.', 'Upload your own data.'])
     
