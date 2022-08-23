@@ -1,6 +1,6 @@
 import streamlit as st
 import torch
-#from detect import *
+from detect import *
 from PIL import Image
 from io import *
 import glob
@@ -61,14 +61,7 @@ def imageInput(device, src):
                 f.write(image_file.getbuffer())
 
             #call Model prediction--
-            #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-            model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                   #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                   'custom', 
-                                   #source='local', 
-                                   path=cfg_model_path, 
-                                   force_reload=True, 
-                                   device='cpu') 
+            model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
             #model.cuda() if device == 'cuda' else model.cpu()
             pred = model(imgpath)
             pred.render()  # render bbox in image
@@ -103,7 +96,6 @@ def imageInput(device, src):
         imgsel = st.slider('Select random images from test set.', min_value=1, max_value=len(imgpath), step=1) 
         image_file = imgpath[imgsel-1]
         submit = st.button("Detect!")
-        st.write(image_file)
         
         colA,colB = st.columns(2)
         with colB:
@@ -116,14 +108,7 @@ def imageInput(device, src):
         with col2:            
             if image_file is not None and submit:
                 #call Model prediction--
-                #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-                model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                      #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                      'custom', 
-                                      #source='local', 
-                                      path=cfg_model_path, 
-                                      force_reload=True, 
-                                      device='cpu') 
+                model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
                 pred = model(image_file)
                 pred.render()  # render bbox in image
                 for im in pred.imgs:
@@ -165,7 +150,7 @@ def videoInput(device, src):
         video_bytes = st_video.read()
         st.video(video_bytes)
         st.write("Uploaded Video")
-        #detect(weights=cfg_model_path, source=imgpath, device=0) if device == 'cuda' else detect(weights=cfg_model_path, source=imgpath, device='cpu')
+        detect(weights=cfg_model_path, source=imgpath, device=0) if device == 'cuda' else detect(weights=cfg_model_path, source=imgpath, device='cpu')
         st_video2 = open(outputpath, 'rb')
         video_bytes2 = st_video2.read()
         st.video(video_bytes2)
@@ -174,7 +159,7 @@ def videoInput(device, src):
 
 def main():
     # -- Sidebar
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Users\kater\AppData\Local\Tesseract-OCR\tesseract.exe'
+    #pytesseract.pytesseract.tesseract_cmd = r'.\Tesseract-OCR\tesseract.exe'
     st.sidebar.title('⚙️Options')
     datasrc = st.sidebar.radio("Select input source.", ['From test set.', 'Upload your own data.'])
     
@@ -194,21 +179,6 @@ def main():
     #st.sidebar.markdown("https://github.com/thepbordin/Obstacle-Detection-for-Blind-people-Deployment")
     if option == "Image":    
         imageInput(deviceoption, datasrc)
-        # image_file = "data/images\Cars34.png"
-        # img = Image.open(image_file)
-        # st.image(img, caption='Selected Image', use_column_width='always')
-        # model = torch.hub.load('D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-        #                        'custom', 
-        #                        source='local', 
-        #                        path=cfg_model_path, 
-        #                        force_reload=True, 
-        #                        device='cpu') 
-        # pred = model(image_file)
-        # pred.render()
-        # for im in pred.imgs:
-        #     im_base64 = Image.fromarray(im)
-        #     im_base64.save(os.path.join('data/outputs', os.path.basename(image_file)))
-        #    #st.image(im, caption='Model Prediction(s)')
     elif option == "Video": 
         videoInput(deviceoption, datasrc)
 
