@@ -15,15 +15,70 @@ import numpy as np
 
 cfg_model_path = "weights/car_plates.pt" 
 
+def areaFilter(minArea, inputImage):
+    #Function from https://stackoverflow.com/questions/70300189/how-to-keep-only-black-color-text-in-the-image-using-opencv-python
+    # Perform an area filter on the binary blobs:
+    componentsNumber, labeledImage, componentStats, componentCentroids = \
+        cv2.connectedComponentsWithStats(inputImage, connectivity=4)
+
+    # Get the indices/labels of the remaining components based on the area stat
+    # (skip the background component at index 0)
+    remainingComponentLabels = [i for i in range(1, componentsNumber) if componentStats[i][4] >= minArea]
+
+    # Filter the labeled pixels based on the remaining labels,
+    # assign pixel intensity to 255 (uint8) for the remaining pixels
+    filteredImage = np.where(np.isin(labeledImage, remainingComponentLabels) == True, 255, 0).astype('uint8')
+
+    return filteredImage
+
+def only_high_contours(img, hight):
+    cnts = cv2.findContours(img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    mask = np.zeros(img.shape, dtype=np.uint8)
+    
+    cnts1 = []
+    for c in cnts:
+      top_point = tuple(c[c[:,:,1].argmin()][0])
+      bottom_point = tuple(c[c[:,:,1].argmax()][0])
+      h = bottom_point[1] - top_point[1]
+                
+      if h > hight*img.shape[0]:
+          cnts1 = cnts1 + [c]
+    
+    cv2.fillPoly(mask, cnts1, [255,255,255])
+    result = cv2.bitwise_or(img, mask)
+    return result
+
+# def img_preprocessor01(img):
+#     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+#     _, img = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
+#     mask = np.zeros(img.shape, dtype=np.uint8)
+#     cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+#     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+#     cv2.fillPoly(mask, cnts, [255,255,255])
+#     mask = 255 - mask
+#     result = cv2.bitwise_or(img, mask)
+#     return result
+
 def img_preprocessor01(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    _, img = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
+    #img = cv2.medianBlur(img,5)
+    #img = cv2.GaussianBlur(img,(5,5),0)
+    #_, img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    #_, img = cv2.threshold(img, 60, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
+    img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+
+    #Remove image borders
     mask = np.zeros(img.shape, dtype=np.uint8)
     cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
     cv2.fillPoly(mask, cnts, [255,255,255])
     mask = 255 - mask
-    result = cv2.bitwise_or(img, mask)
+    binaryImage2 = cv2.bitwise_or(img, mask)
+    binaryImage2 = cv2.erode(binaryImage2, (3,3),iterations = 2)
+    #binaryImage2 = cv2.dilate(binaryImage2, (4,4),iterations = 3)
+    img_byArea = cv2.bitwise_not(areaFilter(80, cv2.bitwise_not(binaryImage2)))
+    result = only_high_contours(img_byArea, 0.45)
     return result
 
 def txt_postproc01(text):
@@ -100,7 +155,7 @@ def imageInput(device, src):
     elif src == 'From test set.': 
         # Image selector slider
         imgpath = glob.glob('data/images/*')
-        imgsel = st.slider('Select random images from test set.', min_value=1, max_value=len(imgpath), step=1) 
+        imgsel = st.slider('Select an image from the test set.', min_value=1, max_value=len(imgpath), step=1) 
         image_file = imgpath[imgsel-1]
         submit = st.button("Detect!")
         #st.write(image_file)
