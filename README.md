@@ -7,12 +7,14 @@ The main output here is the streamlit application avaliable at this [link](https
 ## Model implementation
 This model implements detection the car license plate detection and recognition of the text on it.
 It includes two main steps several steps depicted in the figure below:
+
 ![Figure 1](https://github.com/Dimarfin/License_plate_recognition/docs/fig01.png)
 
 ## Object detection step
 The detection step is performed using [YOLOv5](https://github.com/ultralytics/yolov5) – a state of the art object detection system. It is based on a constitutional neuronal network and build using PyTorch library. YOLOv5 is supplied pertained on MS COCO dataset which speeds up the training step for a custom object. One of the review of the system can be found at the following [link] (https://towardsdatascience.com/yolo-v5-is-here-b668ce2a4908). 
 While there are several sizes of the YOLOv5 in this work YOLOv5s was utilized. For detection of the car license plates it was trained on a [data set from Kaggle](https://www.kaggle.com/datasets/andrewmvd/car-plate-detection).  
 The model reached outstanding performance after 20 epochs of training. Some of the performance metrics measured on the validation subset are presented in the figure below.
+
 ![Figure 2](https://github.com/Dimarfin/License_plate_recognition/docs/fig02.png)
 
 
