@@ -15,6 +15,49 @@ import numpy as np
 
 cfg_model_path = "weights/car_plates.pt" 
 
+def remove_borders(img):
+    _, img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    mask = np.zeros(img.shape, dtype=np.uint8)
+    cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    cv2.fillPoly(mask, cnts, [255,255,255])
+    mask = 255 - mask
+    result = cv2.bitwise_or(img, mask)
+    return result
+
+def img_preprocessor01(img):
+    img = img[:,:,0]#cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    #img = cv2.medianBlur(img,5)
+    #img = cv2.GaussianBlur(img,(5,5),0)
+    #_, img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    #_, img = cv2.threshold(img, 60, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
+    img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+    img = remove_borders(img)
+    #result = cv2.erode(result, (3,3),iterations = 2)
+    img = cv2.dilate(img, (4,4),iterations = 3)
+    result = cv2.bitwise_not(areaFilter(30, cv2.bitwise_not(img)))
+    result = only_high_contours(result, 0.35/(3.5*img.shape[0]/img.shape[1]))
+    return result
+
+def img_preprocessor03(img):
+    _, img = cv2.threshold(img[:,:,0],0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    img = remove_borders(img)
+    result = cv2.bitwise_not(areaFilter(30, cv2.bitwise_not(img)))
+    result = only_high_contours(result, 0.35/(3.5*img.shape[0]/img.shape[1]))
+    #result = cv2.erode(result, (3,3),iterations = 2)
+    #result = cv2.dilate(result, (4,4),iterations = 3)
+    return result
+
+def img_preprocessor04(img):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+    img = remove_borders(img)
+    result = cv2.bitwise_not(areaFilter(80, cv2.bitwise_not(img)))
+    result = only_high_contours(result, 0.45/(3.5*img.shape[0]/img.shape[1]))
+    #result = cv2.erode(result, (3,3),iterations = 2)
+    #result = cv2.dilate(result, (4,4),iterations = 3)
+    return result
+
 def areaFilter(minArea, inputImage):
     #Function from https://stackoverflow.com/questions/70300189/how-to-keep-only-black-color-text-in-the-image-using-opencv-python
     # Perform an area filter on the binary blobs:
@@ -49,51 +92,9 @@ def only_high_contours(img, hight):
     result = cv2.bitwise_or(img, mask)
     return result
 
-# def img_preprocessor01(img):
-#     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-#     _, img = cv2.threshold(img, 100, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
-#     mask = np.zeros(img.shape, dtype=np.uint8)
-#     cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-#     cv2.fillPoly(mask, cnts, [255,255,255])
-#     mask = 255 - mask
-#     result = cv2.bitwise_or(img, mask)
-#     return cv2.erode(result, (3,3),iterations = 2)
-
-def img_preprocessor01(img):
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #img = cv2.medianBlur(img,5)
-    #img = cv2.GaussianBlur(img,(5,5),0)
-    #_, img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    #_, img = cv2.threshold(img, 60, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
-    img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
-
-    #Remove image borders
-    mask = np.zeros(img.shape, dtype=np.uint8)
-    cnts = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-    cv2.fillPoly(mask, cnts, [255,255,255])
-    mask = 255 - mask
-    binaryImage2 = cv2.bitwise_or(img, mask)
-    binaryImage2 = cv2.erode(binaryImage2, (3,3),iterations = 2)
-    #binaryImage2 = cv2.dilate(binaryImage2, (4,4),iterations = 3)
-    img_byArea = cv2.bitwise_not(areaFilter(80, cv2.bitwise_not(binaryImage2)))
-    result = only_high_contours(img_byArea, 0.45)
-    return result
-
-def txt_postproc01(text):
-    ln = text
-    lines = text.split('\n')
-    if len(lines)>1:
-        ln = max(lines, key=len)
-        if len(ln)<4:
-            ln='-1'
-    if (len(lines)==1 and len(lines[0])<4) or (len(lines)==0):
-        ln = '-1'
-    return ln
-
 
 def imageInput(device, src):
+    ts_cfg = '--psm 1 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     
     if src == 'Upload your own image.':
         image_file = st.file_uploader("Upload An Image", type=['png', 'jpeg', 'jpg'])
@@ -118,12 +119,12 @@ def imageInput(device, src):
             #call Model prediction--
             #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
             model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                      #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                      'custom', 
-                                      #source='local', 
-                                      path=cfg_model_path, 
-                                      force_reload=True, 
-                                      device='cpu')
+                                     #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
+                                     'custom', 
+                                     #source='local', 
+                                     path=cfg_model_path, 
+                                     force_reload=True, 
+                                     device='cpu')
             #model.cuda() if device == 'cuda' else model.cpu()
             pred = model(imgpath)
             pred.render()  # render bbox in image
@@ -142,14 +143,17 @@ def imageInput(device, src):
                 
                 for crop in crops:
                     img = cv2.imread(crop_path+crop)
-                    text = pytesseract.image_to_string(img_preprocessor01(img), config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    text = txt_postproc01(text)
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 7 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 8 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                    tx = pytesseract.image_to_string(img_preprocessor03(img), config = ts_cfg)
+                    if len(tx.strip())<4:
+                        result = img_preprocessor01(img)
+                        tx = pytesseract.image_to_string(result, config = ts_cfg)
+                    if len(tx.strip())<4:
+                        result = img_preprocessor04(img)
+                        tx = pytesseract.image_to_string(result, config = ts_cfg)
+                    if len(tx.strip())<4:
+                        tx = pytesseract.image_to_string(img, config = ts_cfg)
                     ta.write("Licence plate(s) text: ")
-                    tb.subheader(text)
+                    tb.subheader(tx)
                 shutil.rmtree('runs/detect/exp/')
                 
     elif src == 'Choose an image from test set.': 
@@ -172,12 +176,12 @@ def imageInput(device, src):
                 #call Model prediction--
                 #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
                 model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                      #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                      'custom', 
-                                      #source='local', 
-                                      path=cfg_model_path, 
-                                      force_reload=True, 
-                                      device='cpu')
+                                          #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
+                                          'custom', 
+                                          #source='local', 
+                                          path=cfg_model_path, 
+                                          force_reload=True, 
+                                          device='cpu')
                 pred = model(image_file)
                 pred.render()  # render bbox in image
                 for im in pred.imgs:
@@ -192,14 +196,17 @@ def imageInput(device, src):
                 #st.write("Licence plate(s) text:")
                 for crop in crops:
                     img = cv2.imread(crop_path+crop)
-                    text = pytesseract.image_to_string(img_preprocessor01(img), config = '--psm 3 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    text = txt_postproc01(text)
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 7 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                    if text=='-1':
-                        text = pytesseract.image_to_string(img, config = '--psm 8 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+                    tx = pytesseract.image_to_string(img_preprocessor03(img), config = ts_cfg)
+                    if len(tx.strip())<4:
+                        result = img_preprocessor01(img)
+                        tx = pytesseract.image_to_string(result, config = ts_cfg)
+                    if len(tx.strip())<4:
+                        result = img_preprocessor04(img)
+                        tx = pytesseract.image_to_string(result, config = ts_cfg)
+                    if len(tx.strip())<4:
+                        tx = pytesseract.image_to_string(img, config = ts_cfg)
                     ta.write("Licence plate(s) text: ")
-                    tb.subheader(text)
+                    tb.subheader(tx)
                 shutil.rmtree('runs/detect/exp/')
     elif src == 'Show project description.':
         st.header('Project description')
@@ -226,7 +233,7 @@ def imageInput(device, src):
                      ### Optical character recognition
                      To recognized text on the license plate tesseract [Tesseract Open Source OCR Engine](https://github.com/tesseract-ocr/tesseract) and a python library [pytesseract](https://pypi.org/project/pytesseract/) was used. The result of OCR is automatically analysed and, if necessary, other image preprocessing parameters or other parameters of the OCR engine ware used
                      ''')
-
+        
 
 def videoInput(device, src):
     uploaded_video = st.file_uploader("Upload Video", type=['mp4', 'mpeg', 'mov'])
