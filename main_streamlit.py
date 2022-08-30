@@ -117,7 +117,7 @@ def imageInput(device, src):
 
             #call Model prediction--
             #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-            model = torch.hub.load('.',
+            model = torch.hub.load('Dimarfin/License_plate_recognition',
                                    #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
                                    'custom', 
                                    source='local', 
@@ -172,7 +172,7 @@ def imageInput(device, src):
             if image_file is not None and submit:
                 #call Model prediction--
                 #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-                model = torch.hub.load('.',
+                model = torch.hub.load('Dimarfin/License_plate_recognition',
                                        #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
                                        'custom', 
                                        source='local', 
