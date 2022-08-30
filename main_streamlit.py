@@ -118,13 +118,12 @@ def imageInput(device, src):
             #call Model prediction--
             #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
             model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                   #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                   'custom', 
-                                   source='local', 
-                                   path=cfg_model_path, 
-                                   force_reload=True, 
-                                   #device='cpu'
-                                   ) 
+                                      #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
+                                      'custom', 
+                                      #source='local', 
+                                      path=cfg_model_path, 
+                                      force_reload=True, 
+                                      device='cpu')
             #model.cuda() if device == 'cuda' else model.cpu()
             pred = model(imgpath)
             pred.render()  # render bbox in image
@@ -173,13 +172,12 @@ def imageInput(device, src):
                 #call Model prediction--
                 #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
                 model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                       #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                       'custom', 
-                                       source='local', 
-                                       path=cfg_model_path, 
-                                       force_reload=True, 
-                                       #device='cpu'
-                                       ) 
+                                      #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
+                                      'custom', 
+                                      #source='local', 
+                                      path=cfg_model_path, 
+                                      force_reload=True, 
+                                      device='cpu')
                 pred = model(image_file)
                 pred.render()  # render bbox in image
                 for im in pred.imgs:
