@@ -1,12 +1,13 @@
+#Acknowledgments 
+#- https://github.com/thepbordin/Obstacle-Detection-for-Blind-people-Deployment
+#- https://stackoverflow.com/questions/70300189/how-to-keep-only-black-color-text-in-the-image-using-opencv-python
 import streamlit as st
 import torch
-#from detect import *
 from PIL import Image
 from io import *
 import glob
 from datetime import datetime
 import os
-#import wget
 import time
 import pytesseract
 import shutil
@@ -26,11 +27,8 @@ def remove_borders(img):
     return result
 
 def img_preprocessor01(img):
-    img = img[:,:,0]#cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #img = cv2.medianBlur(img,5)
-    #img = cv2.GaussianBlur(img,(5,5),0)
-    #_, img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    #_, img = cv2.threshold(img, 60, 255, cv2.THRESH_BINARY)#+cv2.THRESH_OTSU)
+    img = img[:,:,0]#Remove blue channel
+    #
     img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
     img = remove_borders(img)
     #result = cv2.erode(result, (3,3),iterations = 2)
@@ -92,124 +90,92 @@ def only_high_contours(img, hight):
     result = cv2.bitwise_or(img, mask)
     return result
 
-
-def imageInput(device, src):
+def do_OCR(crop_path):
     ts_cfg = '--psm 1 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    crops = os.listdir(crop_path)
+    text = []
+    for crop in crops:
+        img = cv2.imread(crop_path+crop)
+        tx = pytesseract.image_to_string(img_preprocessor03(img), config = ts_cfg)
+        if len(tx.strip())<4:
+            result = img_preprocessor01(img)
+            tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            result = img_preprocessor04(img)
+            tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            tx = pytesseract.image_to_string(img, config = ts_cfg)
+        text = text + [tx]
+    shutil.rmtree('runs/detect/exp/')
+    return text
+
+def call_model_prediction(imgpath,outputpath):
+    #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
+    model = torch.hub.load('Dimarfin/License_plate_recognition',
+                             'custom',  
+                             path=cfg_model_path, 
+                             force_reload=True, 
+                             device='cpu')
+    pred = model(imgpath)
+    pred.render()  # render bbox in image
+    crops = pred.crop(save=True)
+    for im in pred.imgs:
+        im_base64 = Image.fromarray(im)
+        im_base64.save(outputpath)
+
+def detect_and_show(submit,image_file,imgpath,outputpath):
+    if image_file is not None:
+        img = Image.open(image_file)
     
-    if src == 'Upload your own image.':
-        image_file = st.file_uploader("Upload An Image", type=['png', 'jpeg', 'jpg'])
-        col1, col2 = st.columns(2)
-        if image_file is not None:
-            img = Image.open(image_file)
-            
-            colA,colB = st.columns(2)
-            with colB:
-                ta = st.empty()
-                tb = st.empty()           
-            col1, col2 = st.columns(2)
-        
-            with col1:
-                st.image(img, caption='Uploaded Image', use_column_width='always')
-            ts = datetime.timestamp(datetime.now())
-            imgpath = os.path.join('data/uploads', str(ts)+image_file.name)
-            outputpath = os.path.join('data/outputs', os.path.basename(imgpath))
-            with open(imgpath, mode="wb") as f:
-                f.write(image_file.getbuffer())
-
-            #call Model prediction--
-            #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-            model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                     #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                     'custom', 
-                                     #source='local', 
-                                     path=cfg_model_path, 
-                                     force_reload=True, 
-                                     device='cpu')
-            #model.cuda() if device == 'cuda' else model.cpu()
-            pred = model(imgpath)
-            pred.render()  # render bbox in image
-            for im in pred.imgs:
-                im_base64 = Image.fromarray(im)
-                im_base64.save(outputpath)
-
-            #--Display predicton
-            
-            img_ = Image.open(outputpath)
-            with col2:
-                st.image(img_, caption='Model Prediction(s)', use_column_width='always')
-                crops = pred.crop(save=True)
-                crop_path = 'runs/detect/exp/crops/License/'
-                crops = os.listdir(crop_path)
-                
-                for crop in crops:
-                    img = cv2.imread(crop_path+crop)
-                    tx = pytesseract.image_to_string(img_preprocessor03(img), config = ts_cfg)
-                    if len(tx.strip())<4:
-                        result = img_preprocessor01(img)
-                        tx = pytesseract.image_to_string(result, config = ts_cfg)
-                    if len(tx.strip())<4:
-                        result = img_preprocessor04(img)
-                        tx = pytesseract.image_to_string(result, config = ts_cfg)
-                    if len(tx.strip())<4:
-                        tx = pytesseract.image_to_string(img, config = ts_cfg)
-                    ta.write("Licence plate(s) text: ")
-                    tb.subheader(tx)
-                shutil.rmtree('runs/detect/exp/')
-                
-    elif src == 'Choose an image from test set.': 
-        # Image selector slider
-        imgpath = glob.glob('data/images/*')
-        imgsel = st.slider('Select an image from the test set.', min_value=1, max_value=len(imgpath), step=1) 
-        image_file = imgpath[imgsel-1]
-        submit = st.button("Detect!")
-        
         colA,colB = st.columns(2)
         with colB:
             ta = st.empty()
             tb = st.empty()           
         col1, col2 = st.columns(2)
         with col1:
-            img = Image.open(image_file)
-            st.image(img, caption='Selected Image', use_column_width='always')
-        with col2:            
-            if image_file is not None and submit:
-                #call Model prediction--
-                #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-                model = torch.hub.load('Dimarfin/License_plate_recognition',
-                                          #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-                                          'custom', 
-                                          #source='local', 
-                                          path=cfg_model_path, 
-                                          force_reload=True, 
-                                          device='cpu')
-                pred = model(image_file)
-                pred.render()  # render bbox in image
-                for im in pred.imgs:
-                    im_base64 = Image.fromarray(im)
-                    im_base64.save(os.path.join('data/outputs', os.path.basename(image_file)))
-                #--Display predicton
-                    img_ = Image.open(os.path.join('data/outputs', os.path.basename(image_file)))
-                    st.image(img_, caption='Model Prediction(s)')
-                crops = pred.crop(save=True)
+            st.image(img, caption='Input Image', use_column_width='always')
+               
+        if submit:
+            #call Model prediction--
+            call_model_prediction(imgpath,outputpath)
+            #--Display predicton
+            img_ = Image.open(outputpath)
+            with col2: 
+                st.image(img_, caption='Model Prediction(s)')
                 crop_path = 'runs/detect/exp/crops/License/'
-                crops = os.listdir(crop_path)
-                #st.write("Licence plate(s) text:")
-                for crop in crops:
-                    img = cv2.imread(crop_path+crop)
-                    tx = pytesseract.image_to_string(img_preprocessor03(img), config = ts_cfg)
-                    if len(tx.strip())<4:
-                        result = img_preprocessor01(img)
-                        tx = pytesseract.image_to_string(result, config = ts_cfg)
-                    if len(tx.strip())<4:
-                        result = img_preprocessor04(img)
-                        tx = pytesseract.image_to_string(result, config = ts_cfg)
-                    if len(tx.strip())<4:
-                        tx = pytesseract.image_to_string(img, config = ts_cfg)
-                    ta.write("Licence plate(s) text: ")
-                    tb.subheader(tx)
-                shutil.rmtree('runs/detect/exp/')
+                text = do_OCR(crop_path)
+                ta.write("Licence plate(s) text: ")
+                text_line = ''
+                for tx in text:
+                    text_line = text_line + ' ' + tx
+                tb.subheader(text_line.strip())    
+
+def imageInput(device, src):
+    
+    if src == 'Upload your own image.':
+        image_file = st.file_uploader("Upload An Image", type=['png', 'jpeg', 'jpg'])
+        submit = st.button("Detect!")
+        if image_file is not None:
+            ts = datetime.timestamp(datetime.now())
+            imgpath = os.path.join('data/uploads', str(ts)+image_file.name)
+            with open(imgpath, mode="wb") as f:
+                f.write(image_file.getbuffer())
+            outputpath = os.path.join('data/outputs', os.path.basename(imgpath))
+            
+            detect_and_show(submit,image_file,imgpath,outputpath)
+                
+    elif src == 'Choose an image from test set.': 
+        # Image selector slider
+        imgpath = glob.glob('data/images/*')
+        imgsel = st.slider('Select an image from the test set.', min_value=1, max_value=len(imgpath), step=1) 
+        image_file = imgpath[imgsel-1]
+        outputpath = os.path.join('data/outputs', os.path.basename(image_file))
+        submit = st.button("Detect!")
+        
+        detect_and_show(submit,image_file,image_file,outputpath)
+                
     elif src == 'Show project description.':
-        st.header('Project description')
+        #st.header('Project description')
         st.write('This model is the final project of the Data Science Boot Camp at the WBS coding school, Berlin. The source code can be found on GitHub [https://github.com/Dimarfin/License_plate_recognition](https://github.com/Dimarfin/License_plate_recognition)')
         st.markdown('''
                     ### Model implementation
@@ -232,33 +198,9 @@ def imageInput(device, src):
                      
                      ### Optical character recognition
                      To recognized text on the license plate tesseract [Tesseract Open Source OCR Engine](https://github.com/tesseract-ocr/tesseract) and a python library [pytesseract](https://pypi.org/project/pytesseract/) was used. The result of OCR is automatically analysed and, if necessary, other image preprocessing parameters or other parameters of the OCR engine ware used
-                     ''')
-        
-
-def videoInput(device, src):
-    uploaded_video = st.file_uploader("Upload Video", type=['mp4', 'mpeg', 'mov'])
-    if uploaded_video != None:
-
-        ts = datetime.timestamp(datetime.now())
-        imgpath = os.path.join('data/uploads', str(ts)+uploaded_video.name)
-        outputpath = os.path.join('data/video_output', os.path.basename(imgpath))
-
-        with open(imgpath, mode='wb') as f:
-            f.write(uploaded_video.read())  # save video to disk
-
-        st_video = open(imgpath, 'rb')
-        video_bytes = st_video.read()
-        st.video(video_bytes)
-        st.write("Uploaded Video")
-        #detect(weights=cfg_model_path, source=imgpath, device=0) if device == 'cuda' else detect(weights=cfg_model_path, source=imgpath, device='cpu')
-        st_video2 = open(outputpath, 'rb')
-        video_bytes2 = st_video2.read()
-        st.video(video_bytes2)
-        st.write("Model Prediction")
-
+                     ''')      
 
 def main():
-    #pytesseract.pytesseract.tesseract_cmd = r'C:\Users\kater\AppData\Local\Tesseract-OCR\tesseract.exe'
     # -- Sidebar
     st.sidebar.title('⚙️Options')
     datasrc = st.sidebar.radio("", 
@@ -267,43 +209,15 @@ def main():
                                 'Show project description.'])
          
     st.sidebar.write('[GitHub link](https://github.com/Dimarfin/License_plate_recognition)')
-    option = "Image" 
-    deviceoption = 'cpu'
-    #option = st.sidebar.radio("Select input type.", ['Image', 'Video'], disabled = True, index=0)
-    #if torch.cuda.is_available():
-    #    deviceoption = st.sidebar.radio("Select compute Device.", ['cpu', 'cuda'], disabled = False, index=1)
-    #else:
-    #    deviceoption = st.sidebar.radio("Select compute Device.", ['cpu', 'cuda'], disabled = True, index=0)
-    #
     # -- End of Sidebar
     
     
     st.header('🚘 Car license plate recognition system')
     st.subheader('👈🏽 Select options from the left-hand menu bar')
     st.markdown("""---""")
-    #st.sidebar.markdown("https://github.com/thepbordin/Obstacle-Detection-for-Blind-people-Deployment")
-    if option == "Image":    
-        imageInput(deviceoption, datasrc)
-        # image_file = "data/images\Cars34.png"
-        # img = Image.open(image_file)
-        # st.image(img, caption='Selected Image', use_column_width='always')
-        # model = torch.hub.load('D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
-        #                        'custom', 
-        #                        source='local', 
-        #                        path=cfg_model_path, 
-        #                        force_reload=True, 
-        #                        device='cpu') 
-        # pred = model(image_file)
-        # pred.render()
-        # for im in pred.imgs:
-        #     im_base64 = Image.fromarray(im)
-        #     im_base64.save(os.path.join('data/outputs', os.path.basename(image_file)))
-        #    #st.image(im, caption='Model Prediction(s)')
-    elif option == "Video": 
-        videoInput(deviceoption, datasrc)
-
+    imageInput('cpu', datasrc)
+    
 
 if __name__ == '__main__':
   
     main()
-
