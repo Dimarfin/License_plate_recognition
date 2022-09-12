@@ -90,18 +90,42 @@ def only_high_contours(img, hight):
     result = cv2.bitwise_or(img, mask)
     return result
 
+def img_preprocessor_main(img, a=30, h=0.35, mode='rm_blue',threshold='adaptive'):
+    if mode=='rm_blue':
+        img = img[:,:,0]
+    elif mode=='to_gray':
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    if threshold=='adaptive':    
+        img = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,2)
+    elif threshold=='otsu':
+        _, img = cv2.threshold(img,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    
+    img = remove_borders(img)
+    result = cv2.bitwise_not(areaFilter(a, cv2.bitwise_not(img)))
+    result = only_high_contours(result, h/(3.5*img.shape[0]/img.shape[1]))
+    result = cv2.erode(result, (3,3),iterations = 1)
+    #result = cv2.dilate(result, (3,3),iterations = 1)
+    return result
+
 def do_OCR(crop_path):
     ts_cfg = '--psm 1 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     crops = os.listdir(crop_path)
     text = []
     for crop in crops:
         img = cv2.imread(crop_path+crop)
-        tx = pytesseract.image_to_string(img_preprocessor03(img), config = ts_cfg)
+        a=30
+        h=0.35
+        result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='otsu')
+        tx = pytesseract.image_to_string(result, config = ts_cfg)
         if len(tx.strip())<4:
-            result = img_preprocessor01(img)
+            result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='adaptive')
             tx = pytesseract.image_to_string(result, config = ts_cfg)
         if len(tx.strip())<4:
-            result = img_preprocessor04(img)
+            result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='adaptive')
+            tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='otsu')
             tx = pytesseract.image_to_string(result, config = ts_cfg)
         if len(tx.strip())<4:
             tx = pytesseract.image_to_string(img, config = ts_cfg)
@@ -209,7 +233,9 @@ def imageInput(device, src):
                      To recognized text on the license plate [Tesseract Open Source OCR Engine](https://github.com/tesseract-ocr/tesseract) 
                      and a python library [pytesseract](https://pypi.org/project/pytesseract/) was used. 
                      The result of OCR is automatically analysed and, if necessary, another image 
-                     preprocessor or other parameters of the OCR engine are used
+                     preprocessor is used. At the current stage of developtment the character 
+                     error rate (CER) measured on a [test data set](https://github.com/Dimarfin/License_plate_recognition/ocr_tune)
+                     appeared to be equal 11.4%.
                      ''')
 
 def main():
