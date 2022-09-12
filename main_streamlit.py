@@ -234,7 +234,7 @@ def imageInput(device, src):
                      and a python library [pytesseract](https://pypi.org/project/pytesseract/) was used. 
                      The result of OCR is automatically analysed and, if necessary, another image 
                      preprocessor is used. At the current stage of developtment the character 
-                     error rate (CER) measured on a [test data set](https://github.com/Dimarfin/License_plate_recognition/ocr_tune)
+                     error rate (CER) measured on a [test data set](https://github.com/Dimarfin/License_plate_recognition/tree/main/ocr_tune)
                      appeared to be equal 11.4%.
                      ''')
 
