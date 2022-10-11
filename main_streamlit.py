@@ -110,32 +110,26 @@ def img_preprocessor_main(img, a=30, h=0.35, mode='rm_blue',threshold='adaptive'
 
 def do_OCR(crop_path):
     ts_cfg = '--psm 1 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    if os.path.exists('runs/detect/exp/crops/'):
-        crops = os.listdir(crop_path)
-        text = []
-        if len(crops)>0:
-            for crop in crops:
-                img = cv2.imread(crop_path+crop)
-                a=30
-                h=0.35
-                result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='otsu')
-                tx = pytesseract.image_to_string(result, config = ts_cfg)
-                if len(tx.strip())<4:
-                    result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='adaptive')
-                    tx = pytesseract.image_to_string(result, config = ts_cfg)
-                if len(tx.strip())<4:
-                    result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='adaptive')
-                    tx = pytesseract.image_to_string(result, config = ts_cfg)
-                if len(tx.strip())<4:
-                    result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='otsu')
-                    tx = pytesseract.image_to_string(result, config = ts_cfg)
-                if len(tx.strip())<4:
-                    tx = pytesseract.image_to_string(img, config = ts_cfg)
-                text = text + [tx]
-        else:
-            text = ['No license plate found']
-    else:
-        text = ['No license plate found']
+    crops = os.listdir(crop_path)
+    text = []
+    for crop in crops:
+        img = cv2.imread(crop_path+crop)
+        a=30
+        h=0.35
+        result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='otsu')
+        tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='adaptive')
+            tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='adaptive')
+            tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='otsu')
+            tx = pytesseract.image_to_string(result, config = ts_cfg)
+        if len(tx.strip())<4:
+            tx = pytesseract.image_to_string(img, config = ts_cfg)
+        text = text + [tx]
     shutil.rmtree('runs/detect/exp/')
     return text
 
@@ -176,12 +170,9 @@ def detect_and_show(submit,image_file,imgpath,outputpath):
                 text = do_OCR(crop_path)
                 ta.write("Licence plate(s) text: ")
                 text_line = ''
-                if len(text)==1:
-                    tb.subheader(text[0])
-                else:
-                    for tx in text:
-                        text_line = text_line + ' ' + tx + '\n'   
-                    tb.write(text_line[0:-2])     
+                for tx in text:
+                    text_line = text_line + ' ' + tx
+                tb.subheader(text_line.strip())    
 
 def imageInput(device, src):
     
