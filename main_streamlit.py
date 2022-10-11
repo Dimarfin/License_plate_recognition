@@ -110,38 +110,49 @@ def img_preprocessor_main(img, a=30, h=0.35, mode='rm_blue',threshold='adaptive'
 
 def do_OCR(crop_path):
     ts_cfg = '--psm 1 --oem 3 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    crops = os.listdir(crop_path)
-    text = []
-    for crop in crops:
-        img = cv2.imread(crop_path+crop)
-        a=30
-        h=0.35
-        result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='otsu')
-        tx = pytesseract.image_to_string(result, config = ts_cfg)
-        if len(tx.strip())<4:
-            result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='adaptive')
-            tx = pytesseract.image_to_string(result, config = ts_cfg)
-        if len(tx.strip())<4:
-            result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='adaptive')
-            tx = pytesseract.image_to_string(result, config = ts_cfg)
-        if len(tx.strip())<4:
-            result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='otsu')
-            tx = pytesseract.image_to_string(result, config = ts_cfg)
-        if len(tx.strip())<4:
-            tx = pytesseract.image_to_string(img, config = ts_cfg)
-        text = text + [tx]
+    if os.path.exists('runs/detect/exp/crops/'):
+        crops = os.listdir(crop_path)
+        text = []
+        if len(crops)>0:
+            for crop in crops:
+                img = cv2.imread(crop_path+crop)
+                a=30
+                h=0.35
+                result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='otsu')
+                tx = pytesseract.image_to_string(result, config = ts_cfg)
+                if len(tx.strip())<4:
+                    result = img_preprocessor_main(img, a, h, mode='rm_blue',threshold='adaptive')
+                    tx = pytesseract.image_to_string(result, config = ts_cfg)
+                if len(tx.strip())<4:
+                    result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='adaptive')
+                    tx = pytesseract.image_to_string(result, config = ts_cfg)
+                if len(tx.strip())<4:
+                    result = img_preprocessor_main(img, a, h, mode='to_gray',threshold='otsu')
+                    tx = pytesseract.image_to_string(result, config = ts_cfg)
+                if len(tx.strip())<4:
+                    tx = pytesseract.image_to_string(img, config = ts_cfg)
+                text = text + [tx]
+        else:
+            text = ['No license plate found']
+    else:
+        text = ['No license plate found']
     shutil.rmtree('runs/detect/exp/')
     return text
 
 def call_model_prediction(imgpath,outputpath):
     #model = torch.hub.load('ultralytics/yolov5', 'custom', path=cfg_model_path, force_reload=True) 
-    model = torch.hub.load('Dimarfin/License_plate_recognition',
-                             'custom',  
-                             path=cfg_model_path, 
-                             force_reload=True, 
-                             device='cpu')
+    model = torch.hub.load('.',
+                           #'D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
+                           'custom', 
+                           source='local', 
+                           path=cfg_model_path, 
+                           force_reload=True, 
+                           #device='cpu'
+                           ) 
+    #model.cuda() if device == 'cuda' else model.cpu()
     pred = model(imgpath)
     pred.render()  # render bbox in image
+    #crop_path = 'runs/detect/exp/crops/License/'
     crops = pred.crop(save=True)
     for im in pred.imgs:
         im_base64 = Image.fromarray(im)
@@ -170,9 +181,12 @@ def detect_and_show(submit,image_file,imgpath,outputpath):
                 text = do_OCR(crop_path)
                 ta.write("Licence plate(s) text: ")
                 text_line = ''
-                for tx in text:
-                    text_line = text_line + ' ' + tx
-                tb.subheader(text_line.strip())    
+                if len(text)==1:
+                    tb.subheader(text[0])
+                else:
+                    for tx in text:
+                        text_line = text_line + ' ' + tx + '\n'   
+                    tb.write(text_line[0:-2]) 
 
 def imageInput(device, src):
     
@@ -234,11 +248,35 @@ def imageInput(device, src):
                      and a python library [pytesseract](https://pypi.org/project/pytesseract/) was used. 
                      The result of OCR is automatically analysed and, if necessary, another image 
                      preprocessor is used. At the current stage of developtment the character 
-                     error rate (CER) measured on a [test data set](https://github.com/Dimarfin/License_plate_recognition/tree/main/ocr_tune)
-                     appeared to be equal 11.4%.
+                     error rate (CER) measured on a [test data set](https://github.com/Dimarfin/License_plate_recognition/ocr_tune)
+                     appeared to be equal 11.4%
                      ''')
+        
+
+def videoInput(device, src):
+    uploaded_video = st.file_uploader("Upload Video", type=['mp4', 'mpeg', 'mov'])
+    if uploaded_video != None:
+
+        ts = datetime.timestamp(datetime.now())
+        imgpath = os.path.join('data/uploads', str(ts)+uploaded_video.name)
+        outputpath = os.path.join('data/video_output', os.path.basename(imgpath))
+
+        with open(imgpath, mode='wb') as f:
+            f.write(uploaded_video.read())  # save video to disk
+
+        st_video = open(imgpath, 'rb')
+        video_bytes = st_video.read()
+        st.video(video_bytes)
+        st.write("Uploaded Video")
+        #detect(weights=cfg_model_path, source=imgpath, device=0) if device == 'cuda' else detect(weights=cfg_model_path, source=imgpath, device='cpu')
+        st_video2 = open(outputpath, 'rb')
+        video_bytes2 = st_video2.read()
+        st.video(video_bytes2)
+        st.write("Model Prediction")
+
 
 def main():
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Users\kater\AppData\Local\Tesseract-OCR\tesseract.exe'
     # -- Sidebar
     st.sidebar.title('⚙️Options')
     datasrc = st.sidebar.radio("", 
@@ -247,6 +285,8 @@ def main():
                                 'Show project description.'])
          
     st.sidebar.write('[GitHub link](https://github.com/Dimarfin/License_plate_recognition)')
+    # option = "Image" 
+    # deviceoption = 'cpu'
     # -- End of Sidebar
     
     
@@ -255,7 +295,28 @@ def main():
     st.markdown("""---""")
     imageInput('cpu', datasrc)
     
+    # if option == "Image":    
+    #     imageInput(deviceoption, datasrc)
+    #     # image_file = "data/images\Cars34.png"
+    #     # img = Image.open(image_file)
+    #     # st.image(img, caption='Selected Image', use_column_width='always')
+    #     # model = torch.hub.load('D:\Dima\DataScience\Projects\Cars_plate_recognition\Code\Yolov5\yolov5', 
+    #     #                        'custom', 
+    #     #                        source='local', 
+    #     #                        path=cfg_model_path, 
+    #     #                        force_reload=True, 
+    #     #                        device='cpu') 
+    #     # pred = model(image_file)
+    #     # pred.render()
+    #     # for im in pred.imgs:
+    #     #     im_base64 = Image.fromarray(im)
+    #     #     im_base64.save(os.path.join('data/outputs', os.path.basename(image_file)))
+    #     #    #st.image(im, caption='Model Prediction(s)')
+    # elif option == "Video": 
+    #     videoInput(deviceoption, datasrc)
+
 
 if __name__ == '__main__':
   
     main()
+
