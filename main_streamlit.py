@@ -256,8 +256,7 @@ def main():
                                 'Show project description.'])
          
     st.sidebar.write('[GitHub link](https://github.com/Dimarfin/License_plate_recognition)')
-    st.sidebar.markdown("<b style='text-align: right; color: grey;'>Created by</b>", unsafe_allow_html=True)
-    st.sidebar.markdown("<b style='text-align: right; color: grey;'>Dzmitry Afanasekau</b>", unsafe_allow_html=True)
+    st.sidebar.markdown("<b style='text-align: right; color: grey;'>Created by Dzmitry Afanasekau</b>", unsafe_allow_html=True)
     
     # -- End of Sidebar
     
